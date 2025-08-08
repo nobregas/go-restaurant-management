@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -21,6 +23,8 @@ type Config struct {
 var Envs = initConfig()
 
 func initConfig() Config {
+	godotenv.Load()
+
 	return Config{
 		PUBLIC_HOST: getEnv("PUBLIC_HOST", "localhost"),
 		PORT:        getEnv("PORT", "8080"),
