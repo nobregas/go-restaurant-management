@@ -40,3 +40,14 @@ func NewConflictError(field string, reason string) *errors.AppError {
 		},
 	}
 }
+
+func NewInternalServerError(reason string) *errors.AppError {
+	return &errors.AppError{
+		Type:    errors.INTERNAL,
+		Code:    "INTERNAL_SERVER_ERROR",
+		Message: "Internal Server Error",
+		Details: map[string]interface{}{
+			"reason": reason,
+		},
+	}
+}
