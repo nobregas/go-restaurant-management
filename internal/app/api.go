@@ -2,6 +2,8 @@ package app
 
 import (
 	"database/sql"
+	"go-restaurant-management/internal/app/handler"
+	"go-restaurant-management/internal/domain/user"
 	"net/http"
 )
 
@@ -19,5 +21,11 @@ func NewApiServer(addr string, db *sql.DB) *ApiServer {
 }
 
 func (s *ApiServer) Run() error {
+	// User
+	userRepository := user.NewUserRepository(s.db)
+	userService := user.NewUserService(userRepository)
+
+	http.HandleFunc("/users", handler.UserHandler(userService))
+
 	return http.ListenAndServe(s.addr, nil)
 }
