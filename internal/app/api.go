@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"go-restaurant-management/internal/app/handler"
 	"go-restaurant-management/internal/domain/user"
+	"log"
 	"net/http"
 )
 
@@ -27,5 +28,6 @@ func (s *ApiServer) Run() error {
 
 	http.HandleFunc("/users", handler.UserHandler(userService))
 
+	log.Printf("Server has started, listening on %s", s.addr)
 	return http.ListenAndServe(s.addr, nil)
 }
