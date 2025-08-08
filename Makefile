@@ -18,9 +18,3 @@ migrate-down:
 
 migrate-force:
 	@go run cmd/migrate/main.go force $(version)
-
-database-up:
-	@docker-compose up -d
-
-database-down:
-	@docker-compose down
