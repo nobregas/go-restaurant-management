@@ -60,18 +60,24 @@ func register(w http.ResponseWriter, r *http.Request, userService user.UserServi
 	}
 
 	log.Printf("user %s registered successfully", user.Email)
-	utils.WriteJson(w, http.StatusCreated, user)
+
+	response := map[string]interface{}{
+		"user":    user,
+		"message": "User registered successfully",
+	}
+
+	utils.WriteJson(w, http.StatusCreated, response)
 	return nil
 }
 
 func validateBusinessRules(req *types.RegisterUserRequest, userService user.UserService) error {
-	// Verifica se usuário já existe por email
+	// Check if user already exists by email
 	_, err := userService.FindByEmail(req.Email)
 	if err == nil {
 		return exceptions.NewConflictError("email", "user already exists")
 	}
 
-	// Verifica se telefone já existe (se necessário)
+	// Check if phone already exists (if necessary)
 	// _, err = userService.FindByPhone(req.Phone)
 	// if err == nil {
 	// 	return exceptions.NewConflictError("phone", "phone number already in use")
