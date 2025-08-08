@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"go-restaurant-management/internal/shared/errors/exceptions"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -10,44 +11,70 @@ import (
 
 var Validate = validator.New()
 
-func FormatValidationError(errs validator.ValidationErrors) error {
-	var errorList []string
-
-	for _, err := range errs {
-		// if json tag is set, use it
-		field := strings.ToLower(err.Field())
-		if jsonTag := getJsonTag(err); jsonTag != "" {
-			field = jsonTag
+func init() {
+	Validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		if name == "-" {
+			return ""
 		}
-
-		// create friendly message
-		switch err.Tag() {
-		case "required":
-			errorList = append(errorList, fmt.Sprintf("The field %s is required", field))
-		case "email":
-			errorList = append(errorList, fmt.Sprintf("The field %s must be a valid email", field))
-		case "min":
-			errorList = append(errorList, fmt.Sprintf("The field %s must have at least %s characters", field, err.Param()))
-		case "max":
-			errorList = append(errorList, fmt.Sprintf("The field %s must have at most %s characters", field, err.Param()))
-		case "eqfield":
-			errorList = append(errorList, fmt.Sprintf("The field %s must be equal to %s", field, err.Param()))
-		case "cpf":
-			errorList = append(errorList, fmt.Sprintf("The field %s must be a valid CPF", field))
-		default:
-			errorList = append(errorList, fmt.Sprintf("Erro no campo %s: %s", field, err.Tag()))
-		}
-	}
-
-	return exceptions.NewValidationError("", strings.Join(errorList, ". "))
+		return name
+	})
 }
 
-func getJsonTag(err validator.FieldError) string {
-	if field, ok := err.Type().FieldByName(err.Field()); ok {
-		if jsonTag := field.Tag.Get("json"); jsonTag != "" {
-			// remove json tag
-			return strings.Split(jsonTag, ",")[0]
+func ValidateStruct(s interface{}) error {
+	if err := Validate.Struct(s); err != nil {
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			return FormatValidationError(validationErrors)
 		}
+		return exceptions.NewValidationError("validation", err.Error())
 	}
-	return ""
+	return nil
+}
+
+func FormatValidationError(errs validator.ValidationErrors) error {
+	var errorMessages []map[string]interface{}
+
+	for _, err := range errs {
+		field := err.Field()
+		message := getValidationMessage(err)
+
+		errorMessages = append(errorMessages, map[string]interface{}{
+			"field":   field,
+			"message": message,
+			"tag":     err.Tag(),
+			"value":   err.Value(),
+		})
+	}
+
+	if len(errorMessages) == 1 {
+		return exceptions.NewValidationError(
+			errorMessages[0]["field"].(string),
+			errorMessages[0]["message"].(string),
+		)
+	}
+
+	return exceptions.NewMultipleValidationErrors(errorMessages)
+}
+
+func getValidationMessage(err validator.FieldError) string {
+	field := err.Field()
+
+	switch err.Tag() {
+	case "required":
+		return fmt.Sprintf("The field %s is required", field)
+	case "email":
+		return fmt.Sprintf("The field %s must be a valid email address", field)
+	case "min":
+		return fmt.Sprintf("The field %s must have at least %s characters", field, err.Param())
+	case "max":
+		return fmt.Sprintf("The field %s must have at most %s characters", field, err.Param())
+	case "len":
+		return fmt.Sprintf("The field %s must have exactly %s characters", field, err.Param())
+	case "numeric":
+		return fmt.Sprintf("The field %s must contain only numbers", field)
+	case "eqfield":
+		return fmt.Sprintf("The field %s must be equal to %s", field, err.Param())
+	default:
+		return fmt.Sprintf("The field %s is invalid: %s", field, err.Tag())
+	}
 }

@@ -4,53 +4,59 @@ import (
 	"fmt"
 	"go-restaurant-management/internal/shared/errors"
 	"go-restaurant-management/internal/shared/utils"
+	"log"
 	"net/http"
+	"runtime/debug"
 )
 
 func ErrorHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				handleError(w, err)
+				log.Printf("Panic recovered: %v\n%s", err, debug.Stack())
+				handlePanic(w, err)
 			}
 		}()
 		next(w, r)
 	}
 }
 
-func handleError(w http.ResponseWriter, err interface{}) {
+func handlePanic(w http.ResponseWriter, err interface{}) {
 	switch e := err.(type) {
 	case *errors.AppError:
-		writeAppError(w, e)
+		utils.WriteError(w, e)
 
 	case error:
-		utils.WriteError(w, http.StatusInternalServerError, e)
+		internalErr := &errors.AppError{
+			Type:    errors.INTERNAL,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Internal server error occurred",
+			Details: map[string]interface{}{
+				"error": e.Error(),
+			},
+			Cause: e,
+		}
+		utils.WriteError(w, internalErr)
 
 	default:
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("unexpected error: %v", err))
+		genericErr := &errors.AppError{
+			Type:    errors.INTERNAL,
+			Code:    "UNEXPECTED_ERROR",
+			Message: "An unexpected error occurred",
+			Details: map[string]interface{}{
+				"panic_value": fmt.Sprintf("%v", err),
+			},
+		}
+		utils.WriteError(w, genericErr)
 	}
 }
 
-func writeAppError(w http.ResponseWriter, e *errors.AppError) {
-	status := http.StatusInternalServerError
-	switch e.Type {
-	case errors.BAD_REQUEST:
-		status = http.StatusBadRequest
-	case errors.UNAUTHORIZED:
-		status = http.StatusUnauthorized
-	case errors.FORBIDDEN:
-		status = http.StatusForbidden
-	case errors.NOT_FOUND:
-		status = http.StatusNotFound
-	case errors.CONFLICT:
-		status = http.StatusConflict
-	case errors.INTERNAL:
-		status = http.StatusInternalServerError
-	}
+type HandlerFunc func(http.ResponseWriter, *http.Request) error
 
-	utils.WriteJson(w, status, map[string]interface{}{
-		"error":   e.Code,
-		"message": e.Message,
-		"details": e.Details,
-	})
+func ErrorHandlerFunc(h HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := h(w, r); err != nil {
+			utils.WriteError(w, err)
+		}
+	}
 }
