@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+
 	cfg := mysql.Config{
 		User:                 config.Envs.DB_USER,
 		Passwd:               config.Envs.DB_PASSWORD,
@@ -27,7 +28,7 @@ func main() {
 
 	initStorage(db)
 
-	server := app.NewApiServer(":8080", db)
+	server := app.NewApiServer(":"+config.Envs.PORT, db)
 	if err := server.Run(); err != nil {
 		log.Fatal("Server: " + err.Error())
 	}
