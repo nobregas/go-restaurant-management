@@ -1,20 +1,37 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"go-restaurant-management/config"
 	"go-restaurant-management/internal/app"
 	"log"
-
 	"os"
 	"strconv"
 
 	mysqlCfg "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
-	db, err := app.NewMySqlStorage(mysqlCfg.Config{
+	// Connect to MySQL server without specifying a database
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/", config.Envs.DB_USER, config.Envs.DB_PASSWORD, config.Envs.DB_ADDRESS)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatal("Migration: " + err.Error())
+	}
+	defer db.Close()
+
+	// Create the database if it doesn't exist
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", config.Envs.DB_NAME))
+	if err != nil {
+		log.Fatal("Migration: " + err.Error())
+	}
+
+	// Now, connect to the database
+	dbWithDb, err := app.NewMySqlStorage(mysqlCfg.Config{
 		User:                 config.Envs.DB_USER,
 		Passwd:               config.Envs.DB_PASSWORD,
 		Addr:                 config.Envs.DB_ADDRESS,
@@ -28,7 +45,7 @@ func main() {
 		log.Fatal("Migration: " + err.Error())
 	}
 
-	driver, err := mysql.WithInstance(db, &mysql.Config{})
+	driver, err := mysql.WithInstance(dbWithDb, &mysql.Config{})
 	if err != nil {
 		log.Fatal("Migration: " + err.Error())
 	}
