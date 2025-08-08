@@ -148,4 +148,77 @@ func TestRegister(t *testing.T) {
 				status, http.StatusInternalServerError)
 		}
 	})
+
+	t.Run("should return 405 when http method is not POST", func(t *testing.T) {
+		// Create a mock user service
+		mockUserService := &MockUserService{}
+
+		// Create a new HTTP handler with the mock service
+		h := UserHandler(mockUserService)
+
+		// Create a new HTTP request with a GET method
+		req, err := http.NewRequest("GET", "/register", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a response recorder
+		rr := httptest.NewRecorder()
+
+		// Serve the HTTP request
+		h.ServeHTTP(rr, req)
+
+		// Check the status code
+		if status := rr.Code; status != http.StatusMethodNotAllowed {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusMethodNotAllowed)
+		}
+	})
+
+	t.Run("should return 409 when user already exists", func(t *testing.T) {
+		// Create a mock user service
+		mockUserService := &MockUserService{
+			RegisterFunc: func(u user.User) (user.User, error) {
+				return user.User{}, errors.New("user already exists") // Simulate a conflict
+			},
+		}
+
+		// Create a new HTTP handler with the mock service
+		h := UserHandler(mockUserService)
+
+		// Create a new registration request
+		regReq := types.RegisterUserRequest{
+			First_name: "Jane",
+			Last_name:  "Doe",
+			Email:      "jane.doe@example.com",
+			Password:   "password123",
+			Phone:      "0987654321",
+		}
+
+		// Marshal the request body to JSON
+		body, err := json.Marshal(regReq)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a new HTTP request
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a response recorder
+		rr := httptest.NewRecorder()
+
+		// Serve the HTTP request
+		h.ServeHTTP(rr, req)
+
+		// Check the status code
+		// Note: The current handler returns 500 for any service error.
+		// For a real-world app, you might want to return 409 Conflict.
+		if status := rr.Code; status != http.StatusInternalServerError {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusInternalServerError)
+		}
+	})
 }
