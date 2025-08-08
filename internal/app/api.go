@@ -26,7 +26,7 @@ func (s *ApiServer) Run() error {
 	userRepository := user.NewUserRepository(s.db)
 	userService := user.NewUserService(userRepository)
 
-	http.HandleFunc("/users", handler.UserHandler(userService))
+	http.HandleFunc("/api/auth/", handler.AuthHandler(userService))
 
 	log.Printf("Server has started, listening on %s", s.addr)
 	return http.ListenAndServe(s.addr, nil)
